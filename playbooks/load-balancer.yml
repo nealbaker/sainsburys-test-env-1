@@ -1,0 +1,43 @@
+---
+- hosts: BHM
+  vars:
+    http_port: 80
+    max_clients: 200
+    remote_user: centos
+    become: yes
+    become_method: sudo
+  tasks:
+  - name: disable SELINUX
+    replace: dest=/etc/selinux/config regexp='enforcing' replace='disabled'
+
+
+  - name: restart machine
+    shell: sleep 2 && shutdown -r now "Ansible updates triggered"
+    async: 1
+    poll: 0
+    sudo: true
+    ignore_errors: true
+
+  - name: Waiting for hosts to come back
+    delegate_to: localhost
+    wait_for: host={{ inventory_hostname }}
+            state=started
+            port=22
+            delay=15
+            timeout=300
+            connect_timeout=15
+    sudo: false
+
+  - name: ensure nginx is at the latest version
+    yum: pkg=nginx state=latest
+  - name: replace default nginx.conf with latest
+    copy: src=/tmp/nginx.conf dest=/etc/nginx/ mode=0644
+  - name: add reverse proxy config
+    copy: src=/tmp/reverseproxy.conf dest=/etc/nginx/conf.d/ mode=0644
+    notify:
+    - restart nginx
+  - name: ensure nginx is running (and enable it at boot)
+    service: name=nginx state=started enabled=yes
+  handlers:
+    - name: restart nginx
+      service: name=nginx state=restarted

@@ -1,0 +1,12 @@
+---
+- hosts: app-server-1 app-server-2
+  vars:
+    http_port: 80
+    max_clients: 200
+    remote_user: centos
+    become: yes
+    become_method: sudo
+
+  tasks:
+  - name: download latest go and install
+    unarchive: src=https://storage.googleapis.com/golang/go1.6.linux-amd64.tar.gz dest=/usr/local copy=no

@@ -1,0 +1,573 @@
+{
+ "AWSTemplateFormatVersion" : "2010-09-09",
+  "Description" : "Test Environment.",
+  "Parameters" : {
+    "KeyName" : {
+      "Default" : "vpn-access-central",
+      "Description" : "Name of an existing EC2 KeyPair to enable SSH access to the bastion host",
+      "Type" : "String",
+      "MinLength": "1",
+      "MaxLength": "64",
+      "AllowedPattern" : "[-_ a-zA-Z0-9]*",
+      "ConstraintDescription" : "can contain only alphanumeric characters, spaces, dashes and underscores."
+    },
+    "WebInstanceType" : {
+      "Description" : "Web instance type",
+      "Type" : "String",
+      "Default" : "m4.medium",
+      "AllowedValues" : [
+        "t2.micro","m4.medium","m3.xlarge","c4.2xlarge","c3.4xlarge",
+        "c3.8xlarge","r3.large","r3.xlarge","r3.2xlarge","r3.4xlarge","r3.8xlarge"
+        ],
+      "ConstraintDescription" : "must be a valid and allowed EC2 instance type."
+    },
+
+    "AppInstanceType" : {
+      "Description" : "App instance type",
+      "Type" : "String",
+      "Default" : "m4.medium",
+      "AllowedValues" : [
+        "t2.micro","m4.medium","m3.xlarge","c4.2xlarge","c3.4xlarge",
+        "c3.8xlarge","r3.large","r3.xlarge","r3.2xlarge","r3.4xlarge","r3.8xlarge"
+        ],
+      "ConstraintDescription" : "must be a valid and allowed EC2 instance type."
+    },
+
+    "ProvisioningInstanceType" : {
+      "Description" : "Provisioning instance type",
+      "Type" : "String",
+      "Default" : "m3.xlarge",
+      "AllowedValues" : [
+        "t2.micro","m4.large","m3.xlarge","c4.2xlarge","c3.4xlarge",
+        "c3.8xlarge","r3.large","r3.xlarge","r3.2xlarge","r3.4xlarge","r3.8xlarge"
+        ],
+      "ConstraintDescription" : "must be a valid and allowed EC2 instance type."
+    },
+
+    "OperatorEMail": {
+      "Default" : "k4dan1@gmail.com",
+      "Description": "EMail address to notify if there are any scaling operations",
+      "Type": "String",
+      "AllowedPattern": "([a-zA-Z0-9_\\-\\.]+)@((\\[[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.)|(([a-zA-Z0-9\\-]+\\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(\\]?)",
+      "ConstraintDescription": "must be a valid email address."
+    },
+    "Data" : {
+      "Description" : "Size of attached EBS volumes (in GB)",
+      "Type" : "Number",
+      "Default" : 10
+    }
+  },
+  "Conditions" : {
+    "IsEBSOptimized" : { "Fn::Equals" : [ { "Fn::FindInMap" : [ "AWSInstanceTypeEBS", { "Ref" : "WebInstanceType" }, "EbsOptimized" ]}, "true" ] },
+    "HasKeyName" : { "Fn::Not" : [ { "Fn::Equals" : [ { "Ref" : "KeyName" }, ""] }] }
+  },
+  "Mappings" : {
+    "AWSInstanceType2Arch" : {
+      "t2.micro"    : { "Arch" : "AMI" },
+      "t2.small"    : { "Arch" : "AMI" },
+      "m1.small"    : { "Arch" : "64" },
+      "m3.medium"   : { "Arch" : "AMI" },
+      "m4.large"    : { "Arch" : "AMI" }
+    },
+    "AWSInstanceTypeEBS" : {
+      "t2.micro"    : { "EbsOptimized" : "false" },
+      "t2.small"    : { "EbsOptimized" : "false" },
+      "m4.large"    : { "EbsOptimized" : "false" },
+      "m3.medium"    : { "EbsOptimized" : "false" },
+      "r3.large"    : { "EbsOptimized" : "false" },
+      "r3.xlarge"   : { "EbsOptimized" : "true" },
+      "r3.2xlarge"  : { "EbsOptimized" : "true" },
+      "r3.4xlarge"  : { "EbsOptimized" : "true" },
+      "r3.8xlarge"  : { "EbsOptimized" : "false" },
+      "m3.xlarge"   : { "EbsOptimized" : "true" },
+      "m3.2xlarge"  : { "EbsOptimized" : "true" },
+      "c4.2xlarge"  : { "EbsOptimized" : "true" },
+      "c3.4xlarge"  : { "EbsOptimized" : "true" },
+      "c3.8xlarge"  : { "EbsOptimized" : "false" }
+    },
+    "AWSWEBAMI1" : {
+       "eu-central-1"    : { "AMI" : "ami-784cae17" }
+    },
+
+    "AWSAPPAMI1" : {
+       "eu-central-1"    : { "AMI" : "ami-784cae17" }
+    },
+
+    "AWSPROVISIONINGAMI1" : {
+       "eu-central-1"    : { "AMI" : "ami-784cae17" }
+    }
+  },
+
+  "Resources" : {
+    "VPC" : {
+      "Type" : "AWS::EC2::VPC",
+      "Properties" : {
+        "CidrBlock" : "172.16.0.0/16",
+        "Tags" : [
+          {"Key" : "Application", "Value" : { "Ref" : "AWS::StackId"} },
+          {"Key" : "Network", "Value" : "Public" },
+          {"Key" : "Name", "Value" : "APP-VPC" }
+        ]
+      }
+    },
+    "EmailTopic": {
+      "Type": "AWS::SNS::Topic",
+      "Properties": {
+        "Subscription": [ { "Endpoint": { "Ref": "OperatorEMail" }, "Protocol": "email" } ]
+      }
+    },
+    "PublicSubnet1" : {
+      "Type" : "AWS::EC2::Subnet",
+      "Properties" : {
+        "VpcId" : { "Ref" : "VPC" },
+        "CidrBlock" : "172.16.0.0/24",
+        "AvailabilityZone" : { "Fn::Select" : ["0", { "Fn::GetAZs" : { "Ref" : "AWS::Region" } }]},
+        "Tags" : [
+          {"Key" : "Application", "Value" : { "Ref" : "AWS::StackId"} },
+          {"Key" : "Network", "Value" : "Public" }
+        ]
+      }
+    },
+    "InternetGateway" : {
+      "Type" : "AWS::EC2::InternetGateway",
+      "Properties" : {
+        "Tags" : [
+          {"Key" : "Application", "Value" : { "Ref" : "AWS::StackId"} },
+          {"Key" : "Network", "Value" : "Public" }
+        ]
+      }
+    },
+    "GatewayToInternet" : {
+       "Type" : "AWS::EC2::VPCGatewayAttachment",
+       "Properties" : {
+         "VpcId" : { "Ref" : "VPC" },
+         "InternetGatewayId" : { "Ref" : "InternetGateway" }
+       }
+    },
+    "PublicRouteTable" : {
+      "Type" : "AWS::EC2::RouteTable",
+      "Properties" : {
+        "VpcId" : {"Ref" : "VPC"},
+        "Tags" : [
+          {"Key" : "Application", "Value" : { "Ref" : "AWS::StackId"} },
+          {"Key" : "Network", "Value" : "Public" }
+        ]
+      }
+    },
+    "PublicRoute" : {
+      "Type" : "AWS::EC2::Route",
+      "DependsOn" : "GatewayToInternet",
+      "Properties" : {
+        "RouteTableId" : { "Ref" : "PublicRouteTable" },
+        "DestinationCidrBlock" : "0.0.0.0/0",
+        "GatewayId" : { "Ref" : "InternetGateway" }
+      }
+    },
+    "PublicSubnetRouteTableAssociation1" : {
+      "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties" : {
+        "SubnetId" : { "Ref" : "PublicSubnet1" },
+        "RouteTableId" : { "Ref" : "PublicRouteTable" }
+      }
+    },
+    "PublicNetworkAcl" : {
+      "Type" : "AWS::EC2::NetworkAcl",
+      "Properties" : {
+        "VpcId" : {"Ref" : "VPC"},
+        "Tags" : [
+          {"Key" : "Application", "Value" : { "Ref" : "AWS::StackId"} },
+          {"Key" : "Network", "Value" : "Public" }
+        ]
+      }
+    },
+    "InboundHTTPPublicNetworkAclEntry" : {
+      "Type" : "AWS::EC2::NetworkAclEntry",
+      "Properties" : {
+        "NetworkAclId" : {"Ref" : "PublicNetworkAcl"},
+        "RuleNumber" : "100",
+        "Protocol" : "6",
+        "RuleAction" : "allow",
+        "Egress" : "false",
+        "CidrBlock" : "0.0.0.0/0",
+        "PortRange" : {"From" : "80", "To" : "80"}
+      }
+    },
+    "InboundSSHPublicNetworkAclEntry" : {
+      "Type" : "AWS::EC2::NetworkAclEntry",
+      "Properties" : {
+        "NetworkAclId" : { "Ref" : "PublicNetworkAcl" },
+        "RuleNumber" : "102",
+        "Protocol" : "6",
+        "RuleAction" : "allow",
+        "Egress" : "false",
+        "CidrBlock" : "0.0.0.0/0",
+        "PortRange" : { "From" : "22", "To" : "22" }
+      }
+    },
+    "OutboundPublicNetworkAclEntry" : {
+      "Type" : "AWS::EC2::NetworkAclEntry",
+      "Properties" : {
+        "NetworkAclId" : {"Ref" : "PublicNetworkAcl"},
+        "RuleNumber" : "100",
+        "Protocol" : "6",
+        "RuleAction" : "allow",
+        "Egress" : "true",
+        "CidrBlock" : "0.0.0.0/0",
+        "PortRange" : {"From" : "0", "To" : "65535"}
+      }
+    },
+    "PublicSubnetNetworkAclAssociation1" : {
+      "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
+      "Properties" : {
+        "SubnetId" : { "Ref" : "PublicSubnet1" },
+        "NetworkAclId" : { "Ref" : "PublicNetworkAcl" }
+      }
+   },
+
+    "WebEIPAddress1" : {
+    "Type": "AWS::EC2::EIPAssociation",
+    "Properties": {
+      "AllocationId": "eipalloc-0641e66f",
+      "InstanceId": { "Ref" : "WebHost1" }
+    }
+   },
+
+    "ProvEIPAddress1" : {
+    "Type": "AWS::EC2::EIPAssociation",
+    "Properties": {
+      "AllocationId": "eipalloc-d943e4b0",
+      "InstanceId": { "Ref" : "ProvisioningHost1" }
+    }
+   },
+
+
+    "NATSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "Enable internal access to the NAT device",
+        "VpcId" : { "Ref" : "VPC" },
+        "SecurityGroupIngress" : [
+           { "IpProtocol" : "tcp", "FromPort" : "80",  "ToPort" : "80",  "CidrIp" : "0.0.0.0/0"} ,
+           { "IpProtocol" : "tcp", "FromPort" : "22",  "ToPort" : "22",  "SourceSecurityGroupId" : { "Ref" : "ProvisioningInstanceSecurityGroup" } },
+        "SecurityGroupEgress" : [
+           { "IpProtocol" : "tcp", "FromPort" : "1",  "ToPort" : "65535",  "CidrIp" : "0.0.0.0/0"} ]
+      }
+    },
+    "NATSG" : {
+        "Type" : "AWS::EC2::SecurityGroup",
+        "Properties" : {
+        "GroupDescription" : "Enable internal access to the NAT device",
+        "VpcId" : { "Ref" : "VPC" },
+        "SecurityGroupIngress" : [
+                { "IpProtocol" : "tcp", "FromPort" : "80",  "ToPort" : "80",  "CidrIp" : "0.0.0.0/0"},
+                { "IpProtocol" : "tcp", "FromPort" : "22",  "ToPort" : "22",  "CidrIp" : "0.0.0.0/0"},
+                { "IpProtocol" : "tcp", "FromPort" : "1",  "ToPort" : "65535",  "CidrIp" : "0.0.0.0/0"},
+                { "IpProtocol" : "tcp", "FromPort" : "443", "ToPort" : "443", "CidrIp" : "0.0.0.0/0"}],
+         "SecurityGroupEgress" : [
+           { "IpProtocol" : "tcp", "FromPort" : "1",  "ToPort" : "65535",  "CidrIp" : "0.0.0.0/0"} ]
+      }
+    },
+        "DNSOptions" : {
+         "Type" : "AWS::EC2::DHCPOptions",
+         "Properties" : {
+            "DomainName" : "eu-central-1.compute.internal",
+            "DomainNameServers" : [ "AmazonProvidedDNS,8.8.8.8" ],
+            "Tags" : [ { "Key" : "WF", "Value" : "DNS" } ]
+         }
+      },
+        "myVPCDHCPOptionsAssociation" : {
+          "Type" : "AWS::EC2::VPCDHCPOptionsAssociation",
+          "Properties" : {
+                "VpcId" : {"Ref" : "VPC"},
+                "DhcpOptionsId" : {"Ref" : "DNSOptions"}
+          }
+        },
+"ProvisioningHost1" : {
+      "Type" : "AWS::EC2::Instance",
+      "Properties" : {
+        "KeyName" : { "Fn::If" : [ "HasKeyName",
+                                   { "Ref" : "KeyName" },
+                                   { "Ref" : "AWS::NoValue" }
+                                 ]},
+        "ImageId" : { "Fn::FindInMap" : [ "AWSPROVISIONINGAMI1", { "Ref" : "AWS::Region" }, "AMI" ] },
+        "InstanceType" : { "Ref" : "ProvisioningInstanceType" },
+        "EbsOptimized": { "Fn::If" : [ "IsEBSOptimized", true, false ] },
+	"SourceDestCheck" : false,
+
+      "UserData"  : { "Fn::Base64" : { "Fn::Join" : ["", [
+        "#!/bin/bash -xe\n",
+        "cd /tmp\n",
+        "yum -y install wget sshpass python-httplib2 python-jinja2 python-keyczar python-paramiko\n",
+        "yum install -y ansible &> /tmp/ansible.log\n",
+        "mkdir -p /etc/ansible/playbooks\n",
+        "sudo -u centos bash -c : && RUNAS='sudo -u centos'\n",
+        "$RUNAS bash<<CENT\n",
+        "export AWS_ACCESS_KEY_ID=AKIAJTRTXYOQKL5FZMLQ\n",
+        "export AWS_SECRET_ACCESS_KEY=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\n",
+        "export AWS_DEFAULT_REGION=eu-central-1\n",
+        "aws s3 cp s3://planixs-ansible-configs2/prov-files.zip /tmp\n",
+        "aws s3 cp s3://planixs-ansible-configs2/base-files.zip /tmp\n",
+        "aws s3 cp s3://client-ipsec2/plx/plx.zip /tmp\n",
+        "CENT\n",
+	"unzip /tmp/prov-files.zip\n",
+	"unzip /tmp/plx.zip\n",
+        "mv /tmp/ansible.rsa /home/centos/.ssh/id_rsa &> /tmp/m1.log\n",
+        "mv /tmp/ansible.pub /home/centos/.ssh/id_rsa.pub &> /tmp/m2.log\n",
+        "mv /tmp/ansible.hosts /etc/ansible/hosts &> /tmp/m3.log\n",
+        "mv /tmp/ansible.cfg /etc/ansible/ansible.cfg &> /tmp/m4.log\n",
+        "mv /tmp/reverseproxy.yml /etc/ansible/playbooks/reverseproxy.yml &> /tmp/m5.log\n",
+        "mv /tmp/api.yml /etc/ansible/playbooks/api.yml &> /tmp/m6.log\n",
+        "mv /tmp/ci.yml /etc/ansible/playbooks/ci.yml &> /tmp/m7.log\n",
+	"mv /tmp/reverseproxy-vpn.yml /etc/ansible/playbooks/reverseproxy-vpn.yml &> /tmp/m8.log\n",
+	"mv /tmp/vpn-mgmt.yml /etc/ansible/playbooks/vpn-mgmt.yml &> /tmp/m9.log\n",
+	"mv /tmp/vpn-conf.yml /etc/ansible/playbooks/vpn-conf.yml &> /tmp/m10.log\n",
+        "mv /tmp/ssh_config /etc/ssh/ssh_config &> /tmp/m11.log\n"
+    ]]}},
+
+        "BlockDeviceMappings": [{
+          "DeviceName" : "/dev/xvdf",
+          "Ebs": {
+            "VolumeType": "gp2",
+            "VolumeSize" : { "Ref" : "Data" },
+            "DeleteOnTermination": true
+          }
+        }],
+        "NetworkInterfaces" : [{
+          "GroupSet"                 : [{ "Ref" : "ProvisioningInstanceSecurityGroup" }, { "Ref" : "NATSG" }],
+          "AssociatePublicIpAddress" : "false",
+          "PrivateIpAddress" : "172.16.0.6",
+          "DeviceIndex"              : "0",
+          "DeleteOnTermination"      : "true",
+          "SubnetId"                 : { "Ref" : "PublicSubnet1" }
+        }],
+        "Tags" : [ {"Key" : "Name", "Value" : "Provisioning Host (Ansible)"}, {"Key" : "Provisioning", "Value" : "true"} ]
+      }
+    },
+
+
+    "WebHost1" : {
+      "Type" : "AWS::EC2::Instance",
+      "Properties" : {
+        "KeyName" : { "Fn::If" : [ "HasKeyName",
+                                   { "Ref" : "KeyName" },
+                                   { "Ref" : "AWS::NoValue" }
+                                 ]},
+        "ImageId" : { "Fn::FindInMap" : [ "AWSWEBAMI1", { "Ref" : "AWS::Region" }, "AMI" ] },
+        "InstanceType" : { "Ref" : "WebInstanceType" },
+        "EbsOptimized": { "Fn::If" : [ "IsEBSOptimized", true, false ] },
+	"SourceDestCheck" : false,
+
+      "UserData"  : { "Fn::Base64" : { "Fn::Join" : ["", [
+
+        "#!/bin/bash -xe\n",
+        "sudo -u centos bash -c : && RUNAS='sudo -u centos'\n",
+        "$RUNAS bash<<CENT\n",
+        "export AWS_ACCESS_KEY_ID=AKIAJTRTXYOQKL5FZMLQ\n",
+        "export AWS_SECRET_ACCESS_KEY=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\n",
+        "export AWS_DEFAULT_REGION=eu-central-1\n",
+        "aws s3 cp s3://planixs-ansible-configs2/base-files.zip /tmp\n",
+        "CENT\n",
+        "sudo -u root bash -c : && RUNAS='sudo -u root'\n",
+        "$RUNAS bash<<ROOT\n",
+	"cd /tmp\n",
+	"unzip base-files.zip &> 0.log\n",
+        "##cat ansible.pub.root >> /root/.ssh/authorized_keys &> 2.log\n",
+        "##cat ansible.pub >> /home/centos/.ssh/authorized_keys &> 3.log\n",
+        "cp authorized_keys.root /root/.ssh/authorized_keys &> 2.log\n",
+        "cp authorized_keys.base /home/centos/.ssh/authorized_keys &> 3.log\n",
+        "chown -R centos:centos /home/centos/.ssh/authorized_keys &> 4.log\n",
+	"#####sed -i /etc/selinux/config -r -e 's/^SELINUX=.*/SELINUX=disabled/g'\n",
+	"ROOT\n"
+    ]]}},
+
+        "BlockDeviceMappings": [{
+          "DeviceName" : "/dev/xvdf",
+          "Ebs": {
+            "VolumeType": "gp2",
+            "VolumeSize" : { "Ref" : "Data" },
+            "DeleteOnTermination": true
+          }
+        }],
+        "NetworkInterfaces" : [{
+          "GroupSet"                 : [{ "Ref" : "ProvisioningInstanceSecurityGroup" }, { "Ref" : "NATSG" }],
+          "AssociatePublicIpAddress" : "false",
+          "PrivateIpAddress" : "172.16.0.10",
+          "DeviceIndex"              : "0",
+          "DeleteOnTermination"      : "true",
+          "SubnetId"                 : { "Ref" : "PublicSubnet1" }
+        }],
+        "Tags" : [ {"Key" : "Name", "Value" : "Web Host (Ansible)"}, {"Key" : "Web", "Value" : "true"} ]
+      }
+    },
+
+
+
+
+    "AppHost1" : {
+      "Type" : "AWS::EC2::Instance",
+      "Properties" : {
+        "KeyName" : { "Fn::If" : [ "HasKeyName",
+                                   { "Ref" : "KeyName" },
+                                   { "Ref" : "AWS::NoValue" }
+                                 ]},
+        "ImageId" : { "Fn::FindInMap" : [ "AWSAPPAMI1", { "Ref" : "AWS::Region" }, "AMI" ] },
+        "InstanceType" : { "Ref" : "AppInstanceType" },
+        "EbsOptimized": { "Fn::If" : [ "IsEBSOptimized", true, false ] },
+	"SourceDestCheck" : false,
+
+      "UserData"  : { "Fn::Base64" : { "Fn::Join" : ["", [
+
+        "#!/bin/bash -xe\n",
+        "sudo -u centos bash -c : && RUNAS='sudo -u centos'\n",
+        "$RUNAS bash<<CENT\n",
+        "export AWS_ACCESS_KEY_ID=AKIAJTRTXYOQKL5FZMLQ\n",
+        "export AWS_SECRET_ACCESS_KEY=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\n",
+        "export AWS_DEFAULT_REGION=eu-central-1\n",
+        "aws s3 cp s3://planixs-ansible-configs2/base-files.zip /tmp\n",
+        "CENT\n",
+        "sudo -u root bash -c : && RUNAS='sudo -u root'\n",
+        "$RUNAS bash<<ROOT\n",
+	"cd /tmp\n",
+	"unzip base-files.zip &> 0.log\n",
+        "##cat ansible.pub.root >> /root/.ssh/authorized_keys &> 2.log\n",
+        "##cat ansible.pub >> /home/centos/.ssh/authorized_keys &> 3.log\n",
+        "cp authorized_keys.root /root/.ssh/authorized_keys &> 2.log\n",
+        "cp authorized_keys.base /home/centos/.ssh/authorized_keys &> 3.log\n",
+        "chown -R centos:centos /home/centos/.ssh/authorized_keys &> 4.log\n",
+	"#####sed -i /etc/selinux/config -r -e 's/^SELINUX=.*/SELINUX=disabled/g'\n",
+	"ROOT\n"
+    ]]}},
+
+        "BlockDeviceMappings": [{
+          "DeviceName" : "/dev/xvdf",
+          "Ebs": {
+            "VolumeType": "gp2",
+            "VolumeSize" : { "Ref" : "Data" },
+            "DeleteOnTermination": true
+          }
+        }],
+        "NetworkInterfaces" : [{
+          "GroupSet"                 : [{ "Ref" : "ProvisioningInstanceSecurityGroup" }, { "Ref" : "NATSG" }],
+          "AssociatePublicIpAddress" : "false",
+          "PrivateIpAddress" : "172.16.0.20",
+          "DeviceIndex"              : "0",
+          "DeleteOnTermination"      : "true",
+          "SubnetId"                 : { "Ref" : "PublicSubnet1" }
+        }],
+        "Tags" : [ {"Key" : "Name", "Value" : "App Host1 (Ansible)"}, {"Key" : "App", "Value" : "true"} ]
+      }
+    },
+
+
+
+
+    "AppHost2" : {
+      "Type" : "AWS::EC2::Instance",
+      "Properties" : {
+        "KeyName" : { "Fn::If" : [ "HasKeyName",
+                                   { "Ref" : "KeyName" },
+                                   { "Ref" : "AWS::NoValue" }
+                                 ]},
+        "ImageId" : { "Fn::FindInMap" : [ "AWSAPPAMI1", { "Ref" : "AWS::Region" }, "AMI" ] },
+        "InstanceType" : { "Ref" : "AppInstanceType" },
+        "EbsOptimized": { "Fn::If" : [ "IsEBSOptimized", true, false ] },
+	"SourceDestCheck" : false,
+
+      "UserData"  : { "Fn::Base64" : { "Fn::Join" : ["", [
+
+        "#!/bin/bash -xe\n",
+        "sudo -u centos bash -c : && RUNAS='sudo -u centos'\n",
+        "$RUNAS bash<<CENT\n",
+        "export AWS_ACCESS_KEY_ID=AKIAJTRTXYOQKL5FZMLQ\n",
+        "export AWS_SECRET_ACCESS_KEY=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\n",
+        "export AWS_DEFAULT_REGION=eu-central-1\n",
+        "aws s3 cp s3://planixs-ansible-configs2/base-files.zip /tmp\n",
+        "CENT\n",
+        "sudo -u root bash -c : && RUNAS='sudo -u root'\n",
+        "$RUNAS bash<<ROOT\n",
+	"cd /tmp\n",
+	"unzip base-files.zip &> 0.log\n",
+        "##cat ansible.pub.root >> /root/.ssh/authorized_keys &> 2.log\n",
+        "##cat ansible.pub >> /home/centos/.ssh/authorized_keys &> 3.log\n",
+        "cp authorized_keys.root /root/.ssh/authorized_keys &> 2.log\n",
+        "cp authorized_keys.base /home/centos/.ssh/authorized_keys &> 3.log\n",
+        "chown -R centos:centos /home/centos/.ssh/authorized_keys &> 4.log\n",
+	"#####sed -i /etc/selinux/config -r -e 's/^SELINUX=.*/SELINUX=disabled/g'\n",
+	"ROOT\n"
+    ]]}},
+
+        "BlockDeviceMappings": [{
+          "DeviceName" : "/dev/xvdf",
+          "Ebs": {
+            "VolumeType": "gp2",
+            "VolumeSize" : { "Ref" : "Data" },
+            "DeleteOnTermination": true
+          }
+        }],
+        "NetworkInterfaces" : [{
+          "GroupSet"                 : [{ "Ref" : "ProvisioningInstanceSecurityGroup" }, { "Ref" : "NATSG" }],
+          "AssociatePublicIpAddress" : "false",
+          "PrivateIpAddress" : "172.16.0.21",
+          "DeviceIndex"              : "0",
+          "DeleteOnTermination"      : "true",
+          "SubnetId"                 : { "Ref" : "PublicSubnet1" }
+        }],
+        "Tags" : [ {"Key" : "Name", "Value" : "App Host2 (Ansible)"}, {"Key" : "App", "Value" : "true"} ]
+      }
+    },
+
+
+
+
+
+    "ProvisioningInstanceSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "Enable SSH access and HTTP access on the inbound port",
+        "VpcId" : { "Ref" : "VPC" },
+        "SecurityGroupIngress" : [ {
+          "IpProtocol" : "tcp",
+          "FromPort" : "22",
+          "ToPort" : "22",
+          "CidrIp" : "0.0.0.0/0"
+        },
+        {
+          "IpProtocol" : "tcp",
+          "FromPort" : 80,
+          "ToPort" : 80,
+          "CidrIp" : "0.0.0.0/0"
+        } ]
+      }
+  },
+    "InternalSshSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "Allow ssh access from bastion",
+        "VpcId" : { "Ref" : "VPC" },
+        "SecurityGroupIngress" : [
+          { "IpProtocol" : "tcp", "FromPort" : "122", "ToPort" : "122", "SourceSecurityGroupId" : { "Ref" : "ProvisioningInstanceSecurityGroup" } },
+          { "IpProtocol" : "udp", "FromPort" : "1194", "ToPort" : "1194", "SourceSecurityGroupId" : { "Ref" : "ProvisioningInstanceSecurityGroup" } }
+ ],
+        "SecurityGroupEgress" : [ ]
+      }
+     }
+  },
+  "Outputs" : {
+    "VpcId" : {
+      "Description": "VPC",
+      "Value": { "Ref" : "VPC" }
+    },
+    "PublicSubnets" : {
+      "Description" : "Public subnet",
+      "Value" : { "Fn::Join" : [",", [{ "Ref" : "PublicSubnet1" }] ] }
+    },
+    "AZs" : {
+      "Description" : "Availability zones",
+      "Value" :  { "Fn::Join" : [",", [ { "Fn::GetAtt" : ["PublicSubnet1", "AvailabilityZone"] }]]}
+    },
+    "InternalSshSecurityGroupId" : {
+      "Description" : "Internal ssh security group",
+      "Value" : { "Ref" : "InternalSshSecurityGroup" }
+    }
+  }
+}
