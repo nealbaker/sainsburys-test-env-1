@@ -42,24 +42,23 @@
 
 ###Prerequisites and assumsions.
 ####Install git, pip and aws cli tools. (Ubuntu 14.04 TLS)
-apt-get install -y git python-pip
-pip install awscli
+#####apt-get install -y git python-pip
+#####pip install awscli
 
 ###How to build the environment.
-git clone https://github.com/nealbaker/sainsburys-test-env.git
-cd sainsburys-test-env
-./create-env.sh
+#####git clone https://github.com/nealbaker/sainsburys-test-env.git
+#####cd sainsburys-test-env
+#####./create-env.sh
 
 ###Test the environment and confirm round-robin load balancing between the 2 application servers are running.
-curl http://52.58.198.214
-curl http://52.58.198.214
+#####curl http://52.58.198.214 && curl http://52.58.198.214 
 
 
 ###Additional Information:
-The apllication is stored in a seperate repo at https://github.com/nealbaker/sainsburys-app.git.
-The automated build process checks out the application fron the repo.
+#####The apllication is stored in a seperate repo at https://github.com/nealbaker/sainsburys-app.git.
+######The automated build process checks out the application from the repo.
 
-Further enhancments can be made by triggering the create-env script from a Jenkins job or Bamboo plan.
+#####Further enhancments can be made by triggering the create-env script from a Jenkins job or Bamboo plan.
 
 
 
