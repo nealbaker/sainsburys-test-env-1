@@ -40,7 +40,7 @@
             http.ListenAndServe(":8484", nil)
     }
 
-###Prerequisites and assumsions.
+###Prerequisites and Assumptions.
 ####Install git, pip and aws cli tools. (Ubuntu 14.04 TLS)
 #####apt-get install -y git python-pip
 #####pip install awscli
