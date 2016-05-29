@@ -41,7 +41,8 @@
     }
 
 ###Prerequisites and Assumptions.
-####Install git, pip and aws cli tools. (Ubuntu 14.04 TLS)
+####Available Linux server (Ubuntu 14.04 TLS) in Virtualbox, VMWare etc. 
+####Install git, pip and aws cli tools.
 #####apt-get install -y git python-pip
 #####pip install awscli
 
@@ -52,11 +53,31 @@
 
 ###Test the environment and confirm round-robin load balancing between the 2 application servers are running.
 #####curl http://52.58.198.214 && curl http://52.58.198.214 
+#####Hi there, I'm served from ip-172-16-0-20!
+#####Hi there, I'm served from ip-172-16-0-21!
+
+###Make changes to the application at https://github.com/nealbaker/sainsburys-app.git
+fmt.Fprintf(w, "This application has been upgraded to the latest code base.", h)
+
+###Update the environment following an application change.
+#####cd sainsburys-test-env
+#####./update-env.sh
 
 
 ###Additional Information:
 #####The application is stored in a seperate repo at https://github.com/nealbaker/sainsburys-app.git.
 #####The automated build process checks out the application from the repo.
+
+
+####The environment uses a combination of the following:
+	Packer
+	Pre baked AWS AMI's
+	Cloudformation (Stack)
+	Ansible (playbooks)
+	Github
+	Custom Scripts
+		
+	
 
 #####Further enhancments can be made by triggering the create-env script from a Jenkins job or Bamboo plan.
 
