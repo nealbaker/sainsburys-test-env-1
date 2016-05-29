@@ -1,0 +1,43 @@
+{
+  "variables": {
+    "aws_access_key": "",
+    "aws_secret_key": "",
+        "aws_ami_name": ""
+  },
+  "builders": [{
+    "type": "amazon-ebs",
+    "access_key": "{{user `aws_access_key`}}",
+    "secret_key": "{{user `aws_secret_key`}}",
+    "region": "eu-central-1",
+    "source_ami": "ami-87564feb",
+    "instance_type": "t2.medium",
+    "ssh_username": "ubuntu",
+        "ami_name": "{{user `aws_ami_name`}}",
+        "user_data_file": "shell-scripts/user-data-script.sh",
+        "ssh_username": "test-user",
+    "tags": {
+        "Name": "Test App Base AMI v7.0 (Packer Ubuntu Build)",
+        "Control": "10x5"
+        }
+  }],
+  "provisioners": [{
+    "execute_command": "sudo -S bash '{{ .Path }}'",
+    "type": "shell",
+    "script": "shell-scripts/set-cloud-init.sh"
+  },
+  {
+    "execute_command": "sudo -S bash '{{ .Path }}'",
+    "type": "shell",
+    "script": "shell-scripts/import-key-ubuntu.sh"
+  },
+  {
+    "execute_command": "sudo -S bash '{{ .Path }}'",
+    "type": "shell",
+    "script": "shell-scripts/install-deps-ubuntu-base.sh"
+  },
+  {
+    "execute_command": "sudo -S bash '{{ .Path }}'",
+    "type": "shell",
+    "script": "shell-scripts/set-users.sh"
+  }]
+}

@@ -1,3 +1,6 @@
+[prov-server]
+172.16.0.6
+
 [web-server]
 172.16.0.10
 

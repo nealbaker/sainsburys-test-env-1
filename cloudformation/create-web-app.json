@@ -14,9 +14,9 @@
     "WebInstanceType" : {
       "Description" : "Web instance type",
       "Type" : "String",
-      "Default" : "m4.medium",
+      "Default" : "m4.large",
       "AllowedValues" : [
-        "t2.micro","m4.medium","m3.xlarge","c4.2xlarge","c3.4xlarge",
+        "t2.micro","m4.large","m3.xlarge","c4.2xlarge","c3.4xlarge",
         "c3.8xlarge","r3.large","r3.xlarge","r3.2xlarge","r3.4xlarge","r3.8xlarge"
         ],
       "ConstraintDescription" : "must be a valid and allowed EC2 instance type."
@@ -25,9 +25,9 @@
     "AppInstanceType" : {
       "Description" : "App instance type",
       "Type" : "String",
-      "Default" : "m4.medium",
+      "Default" : "m4.large",
       "AllowedValues" : [
-        "t2.micro","m4.medium","m3.xlarge","c4.2xlarge","c3.4xlarge",
+        "t2.micro","m4.large","m3.xlarge","c4.2xlarge","c3.4xlarge",
         "c3.8xlarge","r3.large","r3.xlarge","r3.2xlarge","r3.4xlarge","r3.8xlarge"
         ],
       "ConstraintDescription" : "must be a valid and allowed EC2 instance type."
@@ -36,7 +36,7 @@
     "ProvisioningInstanceType" : {
       "Description" : "Provisioning instance type",
       "Type" : "String",
-      "Default" : "m3.xlarge",
+      "Default" : "m4.large",
       "AllowedValues" : [
         "t2.micro","m4.large","m3.xlarge","c4.2xlarge","c3.4xlarge",
         "c3.8xlarge","r3.large","r3.xlarge","r3.2xlarge","r3.4xlarge","r3.8xlarge"
@@ -66,14 +66,16 @@
       "t2.micro"    : { "Arch" : "AMI" },
       "t2.small"    : { "Arch" : "AMI" },
       "m1.small"    : { "Arch" : "64" },
-      "m3.medium"   : { "Arch" : "AMI" },
+      "m4.large"   : { "Arch" : "AMI" },
+      "m3.xlarge"   : { "Arch" : "AMI" },
+      "t2.medium"   : { "Arch" : "AMI" },
       "m4.large"    : { "Arch" : "AMI" }
     },
     "AWSInstanceTypeEBS" : {
       "t2.micro"    : { "EbsOptimized" : "false" },
       "t2.small"    : { "EbsOptimized" : "false" },
-      "m4.large"    : { "EbsOptimized" : "false" },
-      "m3.medium"    : { "EbsOptimized" : "false" },
+      "m4.large"    : { "EbsOptimized" : "true" },
+      "m3.medium"    : { "EbsOptimized" : "true" },
       "r3.large"    : { "EbsOptimized" : "false" },
       "r3.xlarge"   : { "EbsOptimized" : "true" },
       "r3.2xlarge"  : { "EbsOptimized" : "true" },
@@ -86,15 +88,15 @@
       "c3.8xlarge"  : { "EbsOptimized" : "false" }
     },
     "AWSWEBAMI1" : {
-       "eu-central-1"    : { "AMI" : "ami-784cae17" }
+       "eu-central-1"    : { "AMI" : "ami-9bde31f4" }
     },
 
     "AWSAPPAMI1" : {
-       "eu-central-1"    : { "AMI" : "ami-784cae17" }
+       "eu-central-1"    : { "AMI" : "ami-9bde31f4" }
     },
 
     "AWSPROVISIONINGAMI1" : {
-       "eu-central-1"    : { "AMI" : "ami-784cae17" }
+       "eu-central-1"    : { "AMI" : "ami-5edb3431" }
     }
   },
 
@@ -185,11 +187,11 @@
       "Properties" : {
         "NetworkAclId" : {"Ref" : "PublicNetworkAcl"},
         "RuleNumber" : "100",
-        "Protocol" : "6",
+        "Protocol" : "-1",
         "RuleAction" : "allow",
         "Egress" : "false",
         "CidrBlock" : "0.0.0.0/0",
-        "PortRange" : {"From" : "80", "To" : "80"}
+        "PortRange" : {"From" : "0", "To" : "65535"}
       }
     },
     "InboundSSHPublicNetworkAclEntry" : {
@@ -232,6 +234,22 @@
     }
    },
 
+    "AppEIPAddress1" : {
+    "Type": "AWS::EC2::EIPAssociation",
+    "Properties": {
+      "AllocationId": "eipalloc-aaa503c3",
+      "InstanceId": { "Ref" : "AppHost1" }
+    }
+   },
+
+    "AppEIPAddress2" : {
+    "Type": "AWS::EC2::EIPAssociation",
+    "Properties": {
+      "AllocationId": "eipalloc-979736fe",
+      "InstanceId": { "Ref" : "AppHost2" }
+    }
+   },
+
     "ProvEIPAddress1" : {
     "Type": "AWS::EC2::EIPAssociation",
     "Properties": {
@@ -248,11 +266,19 @@
         "VpcId" : { "Ref" : "VPC" },
         "SecurityGroupIngress" : [
            { "IpProtocol" : "tcp", "FromPort" : "80",  "ToPort" : "80",  "CidrIp" : "0.0.0.0/0"} ,
+           { "IpProtocol" : "tcp", "FromPort" : "443", "ToPort" : "443", "CidrIp" : "0.0.0.0/0"} ,
+           { "IpProtocol" : "tcp", "FromPort" : "8484", "ToPort" : "8484", "CidrIp" : "0.0.0.0/0"} ,
            { "IpProtocol" : "tcp", "FromPort" : "22",  "ToPort" : "22",  "SourceSecurityGroupId" : { "Ref" : "ProvisioningInstanceSecurityGroup" } },
+           { "IpProtocol" : "tcp", "FromPort" : "122",  "ToPort" : "122",  "SourceSecurityGroupId" : { "Ref" : "ProvisioningInstanceSecurityGroup" } },
+           { "IpProtocol" : "tcp", "FromPort" : "1",  "ToPort" : "65535",  "SourceSecurityGroupId" : { "Ref" : "InternalSshSecurityGroup" } },
+           { "IpProtocol" : "udp", "FromPort" : "1194",  "ToPort" : "1194",  "SourceSecurityGroupId" : { "Ref" : "ProvisioningInstanceSecurityGroup" } }],
         "SecurityGroupEgress" : [
            { "IpProtocol" : "tcp", "FromPort" : "1",  "ToPort" : "65535",  "CidrIp" : "0.0.0.0/0"} ]
       }
     },
+
+
+
     "NATSG" : {
         "Type" : "AWS::EC2::SecurityGroup",
         "Properties" : {
@@ -297,8 +323,6 @@
       "UserData"  : { "Fn::Base64" : { "Fn::Join" : ["", [
         "#!/bin/bash -xe\n",
         "cd /tmp\n",
-        "yum -y install wget sshpass python-httplib2 python-jinja2 python-keyczar python-paramiko\n",
-        "yum install -y ansible &> /tmp/ansible.log\n",
         "mkdir -p /etc/ansible/playbooks\n",
         "sudo -u centos bash -c : && RUNAS='sudo -u centos'\n",
         "$RUNAS bash<<CENT\n",
@@ -342,7 +366,6 @@
 	"SourceDestCheck" : false,
 
       "UserData"  : { "Fn::Base64" : { "Fn::Join" : ["", [
-
         "#!/bin/bash -xe\n",
         "sudo -u centos bash -c : && RUNAS='sudo -u centos'\n",
         "$RUNAS bash<<CENT\n",
@@ -398,7 +421,7 @@
       "UserData"  : { "Fn::Base64" : { "Fn::Join" : ["", [
 
         "#!/bin/bash -xe\n",
-        "sudo -u centos bash -c : && RUNAS='sudo -u centos'\n",
+        "sudo -u test-user bash -c : && RUNAS='sudo -u test-user'\n",
         "$RUNAS bash<<CENT\n",
         "CENT\n",
         "sudo -u root bash -c : && RUNAS='sudo -u root'\n",
@@ -452,7 +475,7 @@
       "UserData"  : { "Fn::Base64" : { "Fn::Join" : ["", [
 
         "#!/bin/bash -xe\n",
-        "sudo -u centos bash -c : && RUNAS='sudo -u centos'\n",
+        "sudo -u test-user bash -c : && RUNAS='sudo -u test-user'\n",
         "$RUNAS bash<<CENT\n",
         "CENT\n",
         "sudo -u root bash -c : && RUNAS='sudo -u root'\n",
