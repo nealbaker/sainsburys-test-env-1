@@ -55,8 +55,8 @@
 
 
 ###Additional Information:
-#####The apllication is stored in a seperate repo at https://github.com/nealbaker/sainsburys-app.git.
-######The automated build process checks out the application from the repo.
+#####The application is stored in a seperate repo at https://github.com/nealbaker/sainsburys-app.git.
+#####The automated build process checks out the application from the repo.
 
 #####Further enhancments can be made by triggering the create-env script from a Jenkins job or Bamboo plan.
 
