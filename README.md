@@ -66,7 +66,7 @@ fmt.Fprintf(w, "This application has been upgraded to the latest code base.", h)
 
 ###Additional Information:
 #####The application is stored in a seperate repo at https://github.com/nealbaker/sainsburys-app.git.
-#####The automated build process checks out the application from the repo.
+#####The automated build process checks out the latest version of the application from the repo.
 
 
 ####The environment uses a combination of the following:
@@ -77,9 +77,10 @@ fmt.Fprintf(w, "This application has been upgraded to the latest code base.", h)
 	Github
 	Custom Scripts
 		
-	
 
-#####Further enhancments can be made by triggering the create-env script from a Jenkins job or Bamboo plan.
+#####Further enhancments: 
+	Trigger the create-env script from a Jenkins job or Bamboo plan.
+	Use Blue/Green Deployments to eliminate downtime
 
 
 
