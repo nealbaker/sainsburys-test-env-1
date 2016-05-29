@@ -6,6 +6,7 @@ export AWS_DEFAULT_REGION=eu-central-1
 
 echo "Recreating the Sainsburys Test Environment....."
 aws cloudformation delete-stack --stack-name WebAppStack
+sleep 120
 
 aws cloudformation create-stack --stack-name WebAppStack --template-body file://cloudformation/create-web-app.json
 echo "Rebuilding the Sainsburys Test Environment......."

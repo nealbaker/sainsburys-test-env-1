@@ -79,8 +79,8 @@ fmt.Fprintf(w, "This application has been upgraded to the latest code base.", h)
 		
 
 #####Further enhancments: 
-	Trigger the create-env script from a Jenkins job or Bamboo plan.
-	Use Blue/Green Deployments to eliminate downtime
+	Use Blue/Green Deployments to eliminate downtime.
+	Trigger Github webhooks from a Jenkins job for application changes.
 
 
 
