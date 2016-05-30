@@ -25,8 +25,8 @@ sed -i 's/#   StrictHostKeyChecking ask/StrictHostKeyChecking no/' /etc/ssh/ssh_
 cat > /etc/ansible/run-provisioning.sh <<EOF
 #!/bin/bash
 
-ansible-playbook -s /etc/ansible/playbooks/nginx.yml
-ansible-playbook -s /etc/ansible/playbooks/golang.yml
+ansible-playbook -s /etc/ansible/playbooks/nginx.yml &> /tmp/nginx.log
+ansible-playbook -s /etc/ansible/playbooks/golang.yml &> /tmp/golang.log
 
 exit 0
 EOF
@@ -37,7 +37,7 @@ chmod 755 /etc/ansible/run-provisioning.sh
 cat > /etc/rc.local <<EOF
 #!/bin/sh -e
 
-/etc/ansible/run-provisioning.sh | at now + 2 minutes
+/etc/ansible/run-provisioning.sh | at now + 3 minutes
 
 exit 0
 EOF
@@ -258,7 +258,7 @@ remote_user = test-user
 
 # if set, always use this private key file for authentication, same as
 # if passing --private-key to ansible or ansible-playbook
-private_key_file = /home/test-user/vpn-access-central.pem
+private_key_file = /home/test-user/test.pem
 
 # format of string {{ ansible_managed }} available within Jinja2
 # templates indicates to users editing templates files will be replaced.

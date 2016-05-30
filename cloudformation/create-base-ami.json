@@ -10,13 +10,13 @@
     "secret_key": "{{user `aws_secret_key`}}",
     "region": "eu-central-1",
     "source_ami": "ami-87564feb",
-    "instance_type": "t2.medium",
+    "instance_type": "t2.micro",
     "ssh_username": "ubuntu",
         "ami_name": "{{user `aws_ami_name`}}",
         "user_data_file": "shell-scripts/user-data-script.sh",
         "ssh_username": "test-user",
     "tags": {
-        "Name": "Test App Base AMI v7.0 (Packer Ubuntu Build)",
+        "Name": "Test App Base AMI v1.0 (Packer Ubuntu Build)",
         "Control": "10x5"
         }
   }],

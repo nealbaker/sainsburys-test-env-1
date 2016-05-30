@@ -47,26 +47,20 @@
 #####pip install awscli
 
 ###How to build the environment.
-#####git clone https://github.com/nealbaker/sainsburys-test-env.git
-#####cd sainsburys-test-env
+#####git clone https://github.com/nealbaker/sainsburys-test-env-1.git
+#####cd sainsburys-test-env-1
+#####Add the keys to the aws environment (provided separately)
+#####aws configure
 #####./create-env.sh
 
 ###Test the environment and confirm round-robin load balancing between the 2 application servers are running.
-#####curl http://52.58.198.214 && curl http://52.58.198.214 
+#####curl http://52.58.13.166 && curl http://52.58.13.166 
 #####Hi there, I'm served from ip-172-16-0-20!
 #####Hi there, I'm served from ip-172-16-0-21!
 
-###Make changes to the application at https://github.com/nealbaker/sainsburys-app.git
-fmt.Fprintf(w, "This application has been upgraded to the latest code base.", h)
-
-###Update the environment following an application change.
-#####cd sainsburys-test-env
-#####./update-env.sh
-
-
 ###Additional Information:
 #####The application is stored in a seperate repo at https://github.com/nealbaker/sainsburys-app.git.
-#####The automated build process checks out the latest version of the application from the repo.
+#####The automated build process checks out the current version of the application from the repo.
 
 
 ####The environment uses a combination of the following:
